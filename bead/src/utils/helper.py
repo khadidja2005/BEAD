@@ -631,30 +631,21 @@ def data_label_split(data):
             - labels: The labels of the data.
     """
     (
-        events_train,
-        jets_train,
-        constituents_train,
-        events_val,
-        jets_val,
-        constituents_val,
+        events,
+        jets,
+        constituents,
     ) = data
 
     data = (
-        events_train[:, :-1],
-        jets_train[:, :, :-1],
-        constituents_train[:, :, :-1],
-        events_val[:, :-1],
-        jets_val[:, :, :-1],
-        constituents_val[:, :, :-1],
+        events[:, :-1],
+        jets[:, :, :-1],
+        constituents[:, :, :-1],
     )
 
     labels = (
-        events_train[:, -1],
-        jets_train[:, 0, -1].squeeze(),
-        constituents_train[:, 0, -1].squeeze(),
-        events_val[:, -1],
-        jets_val[:, 0, -1].squeeze(),
-        constituents_val[:, 0, -1].squeeze(),
+        events[:, -1],
+        jets[:, 0, -1].squeeze(),
+        constituents[:, 0, -1].squeeze(),
     )
     return data, labels
 

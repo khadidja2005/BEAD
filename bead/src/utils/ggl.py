@@ -391,7 +391,7 @@ def prepare_inputs(paths, config, verbose: bool = False):
         # Check if no HDF5 files were found
         if files_not_found:
             print(
-                f"Error: No {config.file_type} files found in the directory '{input_path}'."
+                f"Error: No {config.file_type} files found in the directory '{input_path}'. Run --mode=convert_csv first."
             )
             sys.exit()
 
@@ -443,7 +443,6 @@ def prepare_inputs(paths, config, verbose: bool = False):
         torch.save(constituents_tensor, out_path + f"/sig_test_constituents.pt")
     except ValueError as e:
         print(e)
-        sys.exit(1)
 
     end = time.time()
 
@@ -469,13 +468,57 @@ def run_training(paths, config, verbose: bool = False):
 
     # Preprocess the data for training
     data = data_processing.preproc_inputs(paths, config, keyword, verbose)
+    *data_train, _, _, _ = data
+    _, _, _, *data_val = data
+
+    # Split Generator labels from train data
+    data_train, gen_labels_train = helper.data_label_split(data_train)
+
+    # Save train generator labels
+    labels_path = os.path.join(
+        paths["data_path"], config.file_type, "tensors", "processed"
+    )
+    gen_label_events, gen_label_jets, gen_label_constituents = gen_labels_train
+    np.save(
+        os.path.join(labels_path, "train_gen_label_event.npy"),
+        gen_label_events.detach().cpu().numpy(),
+    )
+    np.save(
+        os.path.join(labels_path, "train_gen_label_jet.npy"),
+        gen_label_jets.detach().cpu().numpy(),
+    )
+    np.save(
+        os.path.join(labels_path, "train_gen_label_constituent.npy"),
+        gen_label_constituents.detach().cpu().numpy(),
+    )
+
+    # Split Generator labels from val data
+    data_val, gen_labels_val = helper.data_label_split(data_val)
+
+    # Save val generator labels
+    gen_label_events, gen_label_jets, gen_label_constituents = gen_labels_val
+    np.save(
+        os.path.join(labels_path, "val_gen_label_event.npy"),
+        gen_label_events.detach().cpu().numpy(),
+    )
+    np.save(
+        os.path.join(labels_path, "val_gen_label_jet.npy"),
+        gen_label_jets.detach().cpu().numpy(),
+    )
+    np.save(
+        os.path.join(labels_path, "val_gen_label_constituent.npy"),
+        gen_label_constituents.detach().cpu().numpy(),
+    )
+
+    data = data_train + data_val
+    gen_labels = gen_labels_train + gen_labels_val
 
     # Output path
     output_path = os.path.join(paths["project_path"], "output")
     if verbose:
         print(f"Output path: {output_path}")
 
-    trained_model = training.train(*data, output_path, config, verbose)
+    trained_model = training.train(data, gen_labels, output_path, config, verbose)
 
     print("Training complete")
 
@@ -532,33 +575,29 @@ def run_inference(paths, config, verbose: bool = False):
     )
 
     # Split Generator labels from bkg_test data
-    data_bkg, gen_labels = helper.data_label_split(data_bkg + data_bkg)
-    *data_bkg, _, _, _ = data_bkg
-    *gen_labels, _, _, _ = gen_labels
-
+    data_bkg, gen_labels = helper.data_label_split(data_bkg)
+    
     # Save generator labels
     labels_path = os.path.join(
         paths["data_path"], config.file_type, "tensors", "processed"
     )
     gen_label_events, gen_label_jets, gen_label_constituents = gen_labels
     np.save(
-        os.path.join(labels_path, "gen_label_event.npy"),
+        os.path.join(labels_path, "test_gen_label_event.npy"),
         gen_label_events.detach().cpu().numpy(),
     )
     np.save(
-        os.path.join(labels_path, "gen_label_jet.npy"),
+        os.path.join(labels_path, "test_gen_label_jet.npy"),
         gen_label_jets.detach().cpu().numpy(),
     )
     np.save(
-        os.path.join(labels_path, "gen_label_constituent.npy"),
+        os.path.join(labels_path, "test_gen_label_constituent.npy"),
         gen_label_constituents.detach().cpu().numpy(),
     )
 
     # Create bkg-sig labels
     data_bkg = helper.add_sig_bkg_label(data_bkg, label="bkg")
     data_sig = helper.add_sig_bkg_label(data_sig, label="sig")
-
-    data = data_bkg + data_sig
 
     # Output path
     output_path = os.path.join(paths["project_path"], "output")
@@ -568,7 +607,7 @@ def run_inference(paths, config, verbose: bool = False):
         print(f"Model path: {model_path}")
 
     done = False
-    done = inference.infer(*data, model_path, output_path, config, verbose)
+    done = inference.infer(data_bkg, data_sig, model_path, output_path, config, verbose)
 
     end = time.time()
 

@@ -55,7 +55,7 @@ def plot_losses(output_dir, save_dir, config, verbose: bool = False):
     # --------- Plot Loss Components ---------
     # Define the prefixes and categories of interest
     prefixes = ["loss", "reco", "kl", "emd", "l1", "l2"]
-    categories = ["train", "test", "val"]
+    categories = ["train", "val", "test"]
 
     # Iterate over each category
     for cat in categories:

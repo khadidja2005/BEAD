@@ -152,12 +152,8 @@ def seed_worker(worker_id):
 
 
 def train(
-    events_train,
-    jets_train,
-    constituents_train,
-    events_val,
-    jets_val,
-    constituents_val,
+    data,
+    labels,
     output_path,
     config,
     verbose: bool = False,
@@ -171,6 +167,7 @@ def train(
     Args:
         model (modelObject): The model you wish to train
         data (Tuple): Tuple containing the training and validation data
+        labels (Tuple): Tuple containing the training and validation labels
         project_path (string): Path to the project directory
         config (dataClass): Base class selecting user inputs
 
@@ -178,26 +175,9 @@ def train(
         modelObject: fully trained model ready to perform compression and decompression
     """
 
-    if verbose:
-        print("Events - Training set size:         ", events_train.size(0))
-        print("Events - Validation set size:       ", events_val.size(0))
-        print("Jets - Training set size:           ", jets_train.size(0))
-        print("Jets - Validation set size:         ", jets_val.size(0))
-        print("Constituents - Training set size:   ", constituents_train.size(0))
-        print("Constituents - Validation set size: ", constituents_val.size(0))
-
     # Get the device and move tensors to the device
     device = helper.get_device()
 
-    labeled_data = (
-        events_train,
-        jets_train,
-        constituents_train,
-        events_val,
-        jets_val,
-        constituents_val,
-    )
-
     (
         events_train,
         jets_train,
@@ -205,22 +185,7 @@ def train(
         events_val,
         jets_val,
         constituents_val,
-    ) = [x.to(device) for x in labeled_data]
-
-    # Split data and labels
-    if verbose:
-        print("Splitting data and labels")
-    data, labels = helper.data_label_split(labeled_data)
-
-    # Reshape tensors to pass to conv layers
-    (
-        events_train,
-        jets_train,
-        constituents_train,
-        events_val,
-        jets_val,
-        constituents_val,
-    ) = data
+    ) = [x.to(device) for x in data]
 
     (
         events_train_label,
@@ -229,7 +194,7 @@ def train(
         events_val_label,
         jets_val_label,
         constituents_val_label,
-    ) = labels
+    ) = [x.to(device) for x in labels]
 
     # Reshape tensors to pass to conv layers
     if "ConvVAE" in config.model_name:
@@ -252,14 +217,22 @@ def train(
             ]
         ]
 
-        data = (
-            events_train,
-            jets_train,
-            constituents_train,
-            events_val,
-            jets_val,
-            constituents_val,
-        )
+    data = (
+        events_train,
+        jets_train,
+        constituents_train,
+        events_val,
+        jets_val,
+        constituents_val,
+    )
+    labels = (
+        events_train_label,
+        jets_train_label,
+        constituents_train_label,
+        events_val_label,
+        jets_val_label,
+        constituents_val_label,
+    )
 
     # Create datasets
     ds = helper.create_datasets(*data, *labels)
@@ -481,7 +454,7 @@ def train(
         if config.intermittent_model_saving:
             if epoch % config.intermittent_saving_patience == 0:
                 path = os.path.join(output_path, "models", f"model_{epoch}.pt")
-                helper.model_saver(model, path)
+                helper.save_model(model, path)
 
         # Implementing Early Stopping
         if config.early_stopping:
@@ -492,6 +465,27 @@ def train(
                 break
 
     end = time.time()
+
+    # Run a final forward pass on training data to get final latent space representation
+    # Output Lists
+    mu_data = []
+    logvar_data = []
+    z0_data = []
+    zk_data = []
+    log_det_jacobian_data = []
+
+    with torch.no_grad():
+        for idx, batch in enumerate(tqdm(train_dl)):
+            inputs, labels = batch
+
+            out = helper.call_forward(model, inputs)
+            recon, mu, logvar, ldj, z0, zk = out
+
+            mu_data.append(mu.detach().cpu().numpy())
+            logvar_data.append(logvar.detach().cpu().numpy())
+            log_det_jacobian_data.append(ldj.detach().cpu().numpy())
+            z0_data.append(z0.detach().cpu().numpy())
+            zk_data.append(zk.detach().cpu().numpy())
 
     # Saving activations values
     if config.activation_extraction:
@@ -511,6 +505,53 @@ def train(
     np.save(
         os.path.join(save_dir, "val_epoch_loss_data.npy"),
         np.array(val_loss),
+    )
+
+    # Convert all the data to numpy arrays
+    (
+        mu_data,
+        logvar_data,
+        z0_data,
+        zk_data,
+        log_det_jacobian_data,
+    ) = [
+        np.array(x)
+        for x in [
+            mu_data,
+            logvar_data,
+            z0_data,
+            zk_data,
+            log_det_jacobian_data,
+        ]
+    ]
+
+    # Reshape the data
+    (mu_data, logvar_data, z0_data, zk_data) = [
+        x.reshape(x.shape[0] * x.shape[1], *x.shape[2:])
+        for x in [mu_data, logvar_data, z0_data, zk_data]
+    ]
+
+    # Save all the data
+    save_dir = os.path.join(output_path, "results")
+    np.save(
+        os.path.join(save_dir, "train_mu_data.npy"),
+        mu_data,
+    )
+    np.save(
+        os.path.join(save_dir, "train_logvar_data.npy"),
+        logvar_data,
+    )
+    np.save(
+        os.path.join(save_dir, "train_z0_data.npy"),
+        z0_data,
+    )
+    np.save(
+        os.path.join(save_dir, "train_zk_data.npy"),
+        zk_data,
+    )
+    np.save(
+        os.path.join(save_dir, "train_log_det_jacobian_data.npy"),
+        log_det_jacobian_data,
     )
 
     helper.save_loss_components(

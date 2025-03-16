@@ -5,7 +5,7 @@ def set_config(c):
     c.workspace_name               = "dqm"
     c.project_name                 = "test"
     c.file_type                    = "h5"
-    c.parallel_workers             = 4
+    c.parallel_workers             = 8
     c.chunk_size                   = 10000
     c.num_jets                     = 3
     c.num_constits                 = 15
@@ -19,7 +19,7 @@ def set_config(c):
     c.model_init                   = "xavier"
     c.loss_function                = "VAEFlowLoss"
     c.optimizer                    = "adamw"
-    c.epochs                       = 2
+    c.epochs                       = 4
     c.lr                           = 0.001
     c.batch_size                   = 2
     c.early_stopping               = True
@@ -35,8 +35,8 @@ def set_config(c):
     c.min_delta                    = 0
     c.lr_scheduler_patience        = 50
     c.reg_param                    = 0.001
-    c.intermittent_model_saving    = False
-    c.intermittent_saving_patience = 100
+    c.intermittent_model_saving    = True
+    c.intermittent_saving_patience = 2
     c.activation_extraction        = False
     c.deterministic_algorithm      = False
     c.separate_model_saving        = False

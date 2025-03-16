@@ -42,12 +42,8 @@ def seed_worker(worker_id):
 
 
 def infer(
-    events_bkg,
-    jets_bkg,
-    constituents_bkg,
-    events_sig,
-    jets_sig,
-    constituents_sig,
+    data_bkg,
+    data_sig,
     model_path,
     output_path,
     config,
@@ -61,49 +57,45 @@ def infer(
 
     Args:
         model (modelObject): The model you wish to train
-        data (Tuple): Tuple containing the training and validation data
+        data_bkg (Tuple): Tuple containing the background data
+        data_sig (Tuple): Tuple containing the signal data
         project_path (string): Path to the project directory
         config (dataClass): Base class selecting user inputs
 
     Returns:
         modelObject: fully trained model ready to perform compression and decompression
     """
-    # Print input shapes
-    if verbose:
-        print("Events - bkg shape:         ", events_bkg.shape)
-        print("Jets - bkg shape:           ", jets_bkg.shape)
-        print("Constituents - bkg shape:   ", constituents_bkg.shape)
-        print("Events - sig shape:         ", events_sig.shape)
-        print("Jets - sig shape:           ", jets_sig.shape)
-        print("Constituents - sig shape:   ", constituents_sig.shape)
 
     # Get the device and move tensors to the device
     device = helper.get_device()
 
-    labeled_data = (
+    (
         events_bkg,
         jets_bkg,
         constituents_bkg,
+        events_sig,
+        jets_sig,
+        constituents_sig,
+    ) = [x.to(device) for x in data_bkg+data_sig]
+
+    data_bkg = (
+        events_bkg,
+        jets_bkg,
+        constituents_bkg,
+    )
+
+    data_sig = (
         events_sig,
         jets_sig,
         constituents_sig,
     )
 
-    (
-        events_bkg,
-        jets_bkg,
-        constituents_bkg,
-        events_sig,
-        jets_sig,
-        constituents_sig,
-    ) = [x.to(device) for x in labeled_data]
-
     # Split data and labels
     if verbose:
         print("Splitting data and labels")
-    data, labels = helper.data_label_split(labeled_data)
+    data_bkg, labels_bkg = helper.data_label_split(data_bkg)
+    data_sig, labels_sig = helper.data_label_split(data_sig)
 
-    # Reshape tensors to pass to conv layers
     (
         events_bkg,
         jets_bkg,
@@ -111,7 +103,7 @@ def infer(
         events_sig,
         jets_sig,
         constituents_sig,
-    ) = data
+    ) = data_bkg + data_sig
 
     (
         events_bkg_label,
@@ -120,7 +112,7 @@ def infer(
         events_sig_label,
         jets_sig_label,
         constituents_sig_label,
-    ) = labels
+    ) = labels_bkg + labels_sig
 
     # Save labels
     np.save(
@@ -157,14 +149,23 @@ def infer(
             ]
         ]
 
-        data = (
-            events_bkg,
-            jets_bkg,
-            constituents_bkg,
-            events_sig,
-            jets_sig,
-            constituents_sig,
-        )
+    data = (
+        events_bkg,
+        jets_bkg,
+        constituents_bkg,
+        events_sig,
+        jets_sig,
+        constituents_sig,
+    )
+
+    labels = (
+        events_bkg_label,
+        jets_bkg_label,
+        constituents_bkg_label,
+        events_sig_label,
+        jets_sig_label,
+        constituents_sig_label,
+    )
 
     # Create datasets
     ds = helper.create_datasets(*data, *labels)
@@ -329,7 +330,7 @@ def infer(
         np.save(os.path.join(project_path, "activations.npy"), activations)
 
     if verbose:
-        print(f"Training the model took {(end - start) / 60:.3} minutes")
+        print(f"Inference took {(end - start) / 60:.3} minutes")
 
     # Convert all the data to numpy arrays
     (
@@ -360,27 +361,27 @@ def infer(
     # Save all the data
     save_dir = os.path.join(output_path, "results")
     np.save(
-        os.path.join(save_dir, "reconstructed_data.npy"),
+        os.path.join(save_dir, "test_reconstructed_data.npy"),
         reconstructed_data,
     )
     np.save(
-        os.path.join(save_dir, "mu_data.npy"),
+        os.path.join(save_dir, "test_mu_data.npy"),
         mu_data,
     )
     np.save(
-        os.path.join(save_dir, "logvar_data.npy"),
+        os.path.join(save_dir, "test_logvar_data.npy"),
         logvar_data,
     )
     np.save(
-        os.path.join(save_dir, "z0_data.npy"),
+        os.path.join(save_dir, "test_z0_data.npy"),
         z0_data,
     )
     np.save(
-        os.path.join(save_dir, "zk_data.npy"),
+        os.path.join(save_dir, "test_zk_data.npy"),
         zk_data,
     )
     np.save(
-        os.path.join(save_dir, "log_det_jacobian_data.npy"),
+        os.path.join(save_dir, "test_log_det_jacobian_data.npy"),
         log_det_jacobian_data,
     )
 
