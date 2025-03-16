@@ -140,8 +140,11 @@ def get_arguments():
 class Config:
     """Defines a configuration dataclass"""
 
+    workspace_name: str
+    project_name: str
     file_type: str
     parallel_workers: int
+    chunk_size: int
     num_jets: int
     num_constits: int
     latent_space_size: int
@@ -187,7 +190,7 @@ def set_config(c):
     c.workspace_name               = "{workspace_name}"
     c.project_name                 = "{project_name}"
     c.file_type                    = "h5"
-    c.parallel_workers             = 4
+    c.parallel_workers             = 16
     c.chunk_size                   = 10000
     c.num_jets                     = 3
     c.num_constits                 = 15
@@ -576,7 +579,7 @@ def run_inference(paths, config, verbose: bool = False):
 
     # Split Generator labels from bkg_test data
     data_bkg, gen_labels = helper.data_label_split(data_bkg)
-    
+
     # Save generator labels
     labels_path = os.path.join(
         paths["data_path"], config.file_type, "tensors", "processed"

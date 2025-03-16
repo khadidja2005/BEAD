@@ -76,7 +76,7 @@ def infer(
         events_sig,
         jets_sig,
         constituents_sig,
-    ) = [x.to(device) for x in data_bkg+data_sig]
+    ) = [x.to(device) for x in data_bkg + data_sig]
 
     data_bkg = (
         events_bkg,
@@ -103,7 +103,9 @@ def infer(
         events_sig,
         jets_sig,
         constituents_sig,
-    ) = data_bkg + data_sig
+    ) = (
+        data_bkg + data_sig
+    )
 
     (
         events_bkg_label,
@@ -112,7 +114,9 @@ def infer(
         events_sig_label,
         jets_sig_label,
         constituents_sig_label,
-    ) = labels_bkg + labels_sig
+    ) = (
+        labels_bkg + labels_sig
+    )
 
     # Save labels
     np.save(
