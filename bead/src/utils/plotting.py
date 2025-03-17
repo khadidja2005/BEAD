@@ -298,7 +298,7 @@ def plot_latent_variables(config, paths, verbose=False):
             plt.legend(handles=legend)
             
             save_path = os.path.join(paths["output_path"], "plots", "latent_space", 
-                                   f"{config.project_name}_{prefix[:-1]}{latent_suffix}.pdf")
+                                   f"{prefix[:-1]}{latent_suffix}.pdf")
             plt.savefig(save_path, format="pdf")
             plt.close()
 
@@ -427,7 +427,7 @@ def plot_mu_logvar(config, paths, verbose=False):
                 plt.hist(values, bins=30, alpha=0.6, color=color)
         plt.title(f"Uncertainty Distribution ({prefix[:-1]})")
         plt.savefig(os.path.join(paths["output_path"], "plots", "latent_space", 
-                               f"{config.project_name}_{prefix[:-1]}_uncertainty.pdf"))
+                               f"{prefix[:-1]}_uncertainty.pdf"))
         plt.close()
 
 
@@ -499,4 +499,6 @@ def plot_roc_curve(config, paths, verbose: bool = False):
     # Save the plot as a PDF file.
     save_filename = os.path.join(paths["output_path"], "plots", "loss", "roc.pdf")
     plt.savefig(save_filename)
+    plt.close()
+ plt.savefig(save_filename)
     plt.close()

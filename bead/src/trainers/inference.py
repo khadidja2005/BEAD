@@ -120,15 +120,15 @@ def infer(
 
     # Save labels
     np.save(
-        os.path.join(output_path, "results", "event_label.npy"),
+        os.path.join(output_path, "results", "test_event_label.npy"),
         np.concatenate([events_bkg_label, events_sig_label]),
     )
     np.save(
-        os.path.join(output_path, "results", "jet_label.npy"),
+        os.path.join(output_path, "results", "test_jet_label.npy"),
         np.concatenate([jets_bkg_label, jets_sig_label]),
     )
     np.save(
-        os.path.join(output_path, "results", "constituent_label.npy"),
+        os.path.join(output_path, "results", "test_constituent_label.npy"),
         np.concatenate([constituents_bkg_label, constituents_sig_label]),
     )
 
