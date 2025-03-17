@@ -165,11 +165,7 @@ def reduce_dim_subsampled(data, method="trimap", n_components=2, n_samples=None,
     elif method == "trimap":
         if verbose:
             print("Reducing to 2 dimensions using TriMap...")
-        # Use approximate nearest neighbors for faster computation
-        n_neighbors = min(100, data.shape[0] - 1)  # Limit the number of neighbors
-        if verbose:
-            print(f"Using {n_neighbors} nearest neighbors...")
-        reducer = trimap.TRIMAP(n_dims=n_components, n_neighbors=n_neighbors, apply_pca=False)
+        reducer = trimap.TRIMAP(n_dims=n_components)
         reduced = reducer.fit_transform(data)
         method_used = "trimap"
     else:
@@ -225,12 +221,27 @@ def plot_latent_variables(config, paths, verbose=False):
             gen_labels = np.load(gen_label_path)
             z0 = np.load(z0_path)
             zk = np.load(zk_path)
+            labels = np.load(label_path) if prefix == "test_" else None
+
+            # Determine minimum length among relevant arrays
+            if prefix == "train_":
+                min_length = min(len(gen_labels), len(z0), len(zk))
+            else:
+                min_length = min(len(gen_labels), len(z0), len(zk), len(labels))
+
+            # Clip arrays to min_length
+            gen_labels = gen_labels[:min_length]
+            z0 = z0[:min_length]
+            zk = zk[:min_length]
             if prefix == "test_":
-                labels = np.load(label_path)
+                labels = labels[:min_length]
+
+            if prefix == "test_":
                 n_background = np.sum(labels == 0)
                 if len(gen_labels) != n_background:
-                    print(f"Skipping {prefix}: gen_label/label mismatch")
+                    print(f"Skipping {prefix}: gen_label/label mismatch after clipping")
                     continue
+
         except Exception as e:
             if verbose:
                 print(f"Error loading {prefix} files: {e}")
@@ -258,11 +269,14 @@ def plot_latent_variables(config, paths, verbose=False):
         # Plot latent variables
         for data, latent_suffix in [(z0, "_z0"), (zk, "_zk")]:
             if config.subsample_plot:
+                colors_z = []
                 reduced, method, indices = reduce_dim_subsampled(data, method=config.latent_space_plot_style, n_samples=config.subsample_size, verbose=verbose)
+                colors_z = [colors[i] for i in indices]
             else:
                 reduced, method = reduce_dim(data)
+                colors_z = colors
             plt.figure(figsize=(8,6))
-            plt.scatter(reduced[:,0], reduced[:,1], c=colors, alpha=0.7, edgecolors="w", s=60)
+            plt.scatter(reduced[:,0], reduced[:,1], c=colors_z, alpha=0.7, edgecolors="w", s=60)
             plt.title(f"{latent_suffix[1:].upper()} {method.upper()} Embedding ({prefix[:-1]})")
             plt.xlabel("Component 1")
             plt.ylabel("Component 2")
@@ -325,12 +339,27 @@ def plot_mu_logvar(config, paths, verbose=False):
             mu = np.load(mu_path)
             logvar = np.load(logvar_path)
             gen_labels = np.load(gen_label_path)
+            labels = np.load(label_path) if prefix == "test_" else None
+
+            # Determine minimum length among relevant arrays
+            if prefix == "train_":
+                min_length = min(len(gen_labels), len(mu), len(logvar))
+            else:
+                min_length = min(len(gen_labels), len(mu), len(logvar), len(labels))
+
+            # Clip arrays to min_length
+            gen_labels = gen_labels[:min_length]
+            mu = mu[:min_length]
+            logvar = logvar[:min_length]
             if prefix == "test_":
-                labels = np.load(label_path)
+                labels = labels[:min_length]
+
+            if prefix == "test_":
                 n_background = np.sum(labels == 0)
                 if len(gen_labels) != n_background:
-                    print(f"Skipping {prefix}: gen_label/label mismatch")
+                    print(f"Skipping {prefix}: gen_label/label mismatch after clipping")
                     continue
+
         except Exception as e:
             if verbose:
                 print(f"Error loading {prefix} files: {e}")
@@ -357,18 +386,30 @@ def plot_mu_logvar(config, paths, verbose=False):
 
         # Plot latent means (mu)
         if config.subsample_plot:
-            reduced, method, indices = reduce_dim_subsampled(data, method=config.latent_space_plot_style, n_samples=config.subsample_size, verbose=verbose)
+            colors_z = []
+            reduced_mu, method, indices = reduce_dim_subsampled(mu, method=config.latent_space_plot_style, n_samples=config.subsample_size, verbose=verbose)
+            colors_z = [colors[i] for i in indices]
         else:
-            reduced, method = reduce_dim(data)
+            reduced_mu, method = reduce_dim(mu)
+            colors_z = colors
         plt.figure(figsize=(8,6))
-        plt.scatter(reduced_mu[:,0], reduced_mu[:,1], c=colors, alpha=0.7, edgecolors="w", s=60)
+        plt.scatter(reduced_mu[:,0], reduced_mu[:,1], c=colors_z, alpha=0.7, edgecolors="w", s=60)
         plt.title(f"Mu {method.upper()} Embedding ({prefix[:-1]})")
-        plt.legend(handles=[
-            mpatches.Patch(color="green", label="Herwig"),
-            mpatches.Patch(color="blue", label="Pythia"),
-            mpatches.Patch(color="yellow", label="Sherpa"),
-            mpatches.Patch(color="red", label="Signal") if prefix == "test_" else None
-        ])
+        # Create legend based on prefix
+        if prefix == "train_":
+            legend = [
+                mpatches.Patch(color="green", label="Herwig"),
+                mpatches.Patch(color="blue", label="Pythia"),
+                mpatches.Patch(color="yellow", label="Sherpa")
+            ]
+        else:
+            legend = [
+                mpatches.Patch(color="green", label="Herwig"),
+                mpatches.Patch(color="blue", label="Pythia"),
+                mpatches.Patch(color="yellow", label="Sherpa"),
+                mpatches.Patch(color="red", label="Signal")
+            ]
+        plt.legend(handles=legend)
         plt.savefig(os.path.join(paths["output_path"], "plots", "latent_space", 
                                f"{config.project_name}_{prefix[:-1]}_mu.pdf"))
         plt.close()
@@ -405,7 +446,11 @@ def plot_roc_curve(config, paths, verbose: bool = False):
         paths["output_path"], "results", config.input_level + "_label.npy"
     )
     output_dir = os.path.join(paths["output_path"], "results")
-    ground_truth = np.load(label_path)
+    #check if the label file exists
+    if not os.path.exists(label_path):
+        raise FileNotFoundError(f"Label file not found: {label_path}")
+    else:
+        ground_truth = np.load(label_path)
 
     # Ensure ground_truth is a 1D array
     if ground_truth.ndim != 1:
