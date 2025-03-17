@@ -13,7 +13,7 @@ def set_config(c):
     c.normalizations               = "pj_custom"
     c.invert_normalizations        = False
     c.train_size                   = 0.95
-    c.model_name                   = "Planar_ConvVAE"
+    c.model_name                   = "ConvVAE"
     c.input_level                  = "constituent"
     c.input_features               = "4momentum_btag"
     c.model_init                   = "xavier"
@@ -21,7 +21,7 @@ def set_config(c):
     c.optimizer                    = "adamw"
     c.epochs                       = 4
     c.lr                           = 0.001
-    c.batch_size                   = 2
+    c.batch_size                   = 512
     c.early_stopping               = True
     c.lr_scheduler                 = True
     c.latent_space_plot_style      = "trimap"
